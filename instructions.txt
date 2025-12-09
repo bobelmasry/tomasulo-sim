@@ -1,0 +1,16 @@
+# Load/store examples
+LOAD r3, 4(r2)
+STORE r1, -3(r4)
+
+# Branch
+BEQ r1, r2, 10
+
+# Call/Return
+CALL funcLabel
+RET
+
+# Arithmetic
+ADD r1, r2, r3
+SUB r4, r5, r6
+NAND r0, r1, r2
+MUL r7, r3, r3

@@ -3,29 +3,75 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <algorithm>
 using namespace std;
 
-int main() {
+string trim(string s) {
+    // Remove leading spaces
+    while (!s.empty() && isspace(s.front()))
+        s.erase(s.begin());
 
+    // Remove trailing spaces
+    while (!s.empty() && isspace(s.back()))
+        s.pop_back();
 
-    // Fetching the binary instructions from the instructions.txt file
-    ifstream infile("instructions.txt"); // Open file
-    if (!infile) {
-        cerr << "Error: Could not open file.\n";
-        return 1;
+    return s;
+}
+
+struct ParsedInstruction {
+    string opcode;
+    vector<string> operands;   // rA, rB, rC, offset, label, etc.
+};
+
+ParsedInstruction parseLine(const string& line) {
+    ParsedInstruction inst;
+
+    string cleaned = line;
+    // Remove commas
+    for (char& c : cleaned) {
+        if (c == ',') c = ' ';
     }
 
+    // Tokenize by spaces
+    stringstream ss(cleaned);
+    ss >> inst.opcode;  // First token is always opcode (LOAD, ADD, BEQ...)
+
+    string token;
+    while (ss >> token) {
+        inst.operands.push_back(token);
+    }
+
+    return inst;
+}
+
+vector<string> readInstructions(const string& filename) {
+    ifstream infile(filename);
     vector<string> instructions;
     string line;
 
-    // Read each line from the file
+    if (!infile) {
+        cerr << "Error: Could not open file " << filename << "\n";
+        return instructions;
+    }
+
     while (getline(infile, line)) {
-        // Skip empty lines
+        line = trim(line);
+
+        // skip empty lines
         if (line.empty()) continue;
+
+        // Skip comments '#'
+        if (line[0] == '#') continue;
+
         instructions.push_back(line);
     }
 
     infile.close();
+    return instructions;
+}
+
+int main() {
 
     // Initializing all the reservation stations
     ReservationStation Load1("Load1");
@@ -48,6 +94,22 @@ int main() {
     
     ReservationStation Mul("Mul");
     
+    vector<string> instructions = readInstructions("instructions.txt");
+
+    for (const string& inst : instructions) {
+        ParsedInstruction p = parseLine(inst);
+
+        cout << "Instruction: " << inst << "\n";
+        cout << "  Opcode: " << p.opcode << "\n";
+
+        // Print operands
+        for (int i = 0; i < p.operands.size(); i++) {
+            cout << "  Operand " << i << ": " << p.operands[i] << "\n";
+        }
+
+        cout << "\n";
+    }
+
     
     return 0;
 }
