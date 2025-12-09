@@ -5,8 +5,9 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#include <queue>
 using namespace std;
-
+/// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
 int getRegisterNumber(const string& reg) {
     if (reg.size() < 2 || reg[0] != 'r')
         return -1; // does not have an r
@@ -104,6 +105,7 @@ struct Instruction{
     Operation OP;
     int A;
     int Operand1, Operand2, Operand3;
+    int tIssue, tExecute, tWrite, tCommit;
 };
 void printInstruction(Instruction i){
     cout << "Type: " << i.OP << endl;
@@ -173,7 +175,10 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
 
         try {
             cout << "Instruction: " << inst << "\n  Opcode: " << p.opcode << "\n";
-
+            temp.Operand3 = -1;
+            temp.A = 0;
+            temp.Operand1 = -1;
+            temp.Operand2 = -1;
             switch (stringOpSwitcher(p.opcode)) {
 
                 case LOAD:
@@ -226,34 +231,61 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
     }
 }
 
+//Register renaming
+//Rules: no changning R1 or R0
+void renameRegisters(Instruction& it){
+    
+};
+
+//ROB helper functions
+bool isFull(const queue<Instruction>& q){
+    return q.size() >= 8;
+}
+
 int main() {
 
     // Initializing all the reservation stations
     ReservationStation Load1("Load1");
     ReservationStation Load2("Load2");
-
     ReservationStation Store("Store");
-
     ReservationStation Branch1("Branch1");
     ReservationStation Branch2("Branch2");
-
     ReservationStation Call("Call");
-
     ReservationStation Add_Sub1("Add/Sub1");
     ReservationStation Add_Sub2("Add/Sub2");
     ReservationStation Add_Sub3("Add/Sub3");
     ReservationStation Add_Sub4("Add/Sub4");
-
     ReservationStation NAND1("NAND1");
     ReservationStation NAND2("NAND2");
-    
     ReservationStation Mul("Mul");
     
+    //Import the instructions
     vector<string> instructions = readInstructions("instructions.txt");
     vector<Instruction> Executables;
     assembleInstructions(Executables, instructions);
-    for(auto t : Executables)
-        printInstruction(t);
+    // for(auto t : Executables)
+    //     printInstruction(t);
+    //Initialize PC and cycle counter
+    int PC = 0;
+    int tCycle = 0;
     
+    //Create the ROB
+    queue<Instruction> ROB;
+
+    //Initialize the register array and create renaming functions
+    int registers[128];
+    int topRegisterChanged = 8;
+    
+    while(true){
+        tCycle++;
+        Instruction currentInstruction = Executables[PC];
+
+        //Check Ability to issue
+        if(!isFull(ROB)){
+            ROB.push(currentInstruction);
+        }
+        break;
+        
+    }
     return 0;
 }
