@@ -105,7 +105,13 @@ struct Instruction{
     int A;
     int Operand1, Operand2, Operand3;
 };
-
+void printInstruction(Instruction i){
+    cout << "Type: " << i.OP << endl;
+    cout << "A: " << i.A << endl;
+    cout << "Op1: " << i.Operand1 << endl;
+    cout << "Op2: " << i.Operand2 << endl;
+    cout << "Op3: " << i.Operand3 << endl; 
+};
 vector<string> readInstructions(const string& filename) {
     ifstream infile(filename);
     vector<string> instructions;
@@ -138,84 +144,85 @@ Operation stringOpSwitcher(string opcode){
     if(opcode == "STORE")
         return STORE;
     if(opcode == "CALL")
-        return LOAD;
+        return CALL;
     if(opcode == "RET")
-        return LOAD;
+        return RET;
     if(opcode == "BEQ")
-        return LOAD;
+        return BEQ;
     if(opcode == "ADD")
-        return LOAD;
+        return ADD;
     if(opcode == "SUB")
-        return LOAD;
+        return SUB;
     if(opcode == "NAND")
-        return LOAD;
+        return NAND;
     if(opcode == "MUL")
-        return LOAD;  
+        return MUL;  
 }
 
 void parseOffset(Instruction& instr, string Operand){
-    int opLen = Operand.length();
-    instr.Operand2 = stoi(Operand.substr(opLen-2, 1));
-    size_t l = Operand.find('(');
-    instr.A = stoi(Operand.substr(0, l));
+    MemAddress m = decodeMemAddress(Operand);
+    instr.A = m.offset;
+    instr.Operand2 = m.baseReg;
 }
 
-void assembleInstructions(vector<Instruction>& exec, vector<string> instrs){
+
+void assembleInstructions(vector<Instruction>& exec, const vector<string>& instrs) {
     for (const string& inst : instrs) {
         ParsedInstruction p = parseLine(inst);
         Instruction temp;
-        cout << "Instruction: " << inst << "\n";
-        cout << "  Opcode: " << p.opcode << "\n";
-        switch(stringOpSwitcher(p.opcode)){
-            case LOAD:
-                temp.OP = LOAD;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                parseOffset(temp, p.operands[1]);
-                break;
-            case STORE:
-                temp.OP = STORE;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                parseOffset(temp, p.operands[1]);
-                break;
-            case BEQ:
-                temp.OP = BEQ;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                temp.Operand2 = stoi(p.operands[1].substr(1));
-                temp.A = stoi(p.operands[2]);
-                break;
-            case CALL:
-                temp.OP = CALL;
-                temp.A = stoi(p.operands[0]);
-                break;
-            case RET:
-                temp.OP = CALL;
-                break;
-            case ADD:
-                temp.OP = ADD;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                temp.Operand2 = stoi(p.operands[1].substr(1));
-                temp.Operand3 = stoi(p.operands[2].substr(1));
-                break;
-            case SUB:
-                temp.OP = SUB;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                temp.Operand2 = stoi(p.operands[1].substr(1));
-                temp.Operand3 = stoi(p.operands[2].substr(1));
-                break;
-            case NAND:
-                temp.OP = NAND;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                temp.Operand2 = stoi(p.operands[1].substr(1));
-                temp.Operand3 = stoi(p.operands[2].substr(1));
-                break;
-            case MUL:
-                temp.OP = MUL;
-                temp.Operand1 = stoi(p.operands[0].substr(1));
-                temp.Operand2 = stoi(p.operands[1].substr(1));
-                temp.Operand3 = stoi(p.operands[2].substr(1));
-                break;
+
+        try {
+            cout << "Instruction: " << inst << "\n  Opcode: " << p.opcode << "\n";
+
+            switch (stringOpSwitcher(p.opcode)) {
+
+                case LOAD:
+                    temp.OP = LOAD;
+                    temp.Operand1 = getRegisterNumber(p.operands.at(0));
+                    parseOffset(temp, p.operands.at(1));
+                    break;
+
+                case STORE:
+                    temp.OP = STORE;
+                    temp.Operand1 = getRegisterNumber(p.operands.at(0));
+                    parseOffset(temp, p.operands.at(1));
+                    break;
+
+                case BEQ:
+                    temp.OP = BEQ;
+                    temp.Operand1 = getRegisterNumber(p.operands.at(0));
+                    temp.Operand2 = getRegisterNumber(p.operands.at(1));
+                    temp.A = stoi(p.operands.at(2)); // branch target PC offset
+                    break;
+
+                case CALL:
+                    temp.OP = CALL;
+                    temp.A = stoi(p.operands.at(0)); // numeric only, no label handling
+                    break;
+
+                case RET:
+                    temp.OP = RET;
+                    break;
+
+                case ADD:
+                case SUB:
+                case NAND:
+                case MUL:
+                    temp.OP = stringOpSwitcher(p.opcode);
+                    temp.Operand1 = getRegisterNumber(p.operands.at(0));
+                    temp.Operand2 = getRegisterNumber(p.operands.at(1));
+                    temp.Operand3 = getRegisterNumber(p.operands.at(2));
+                    break;
+            }
+
+            exec.push_back(temp);
         }
-        cout << "\n";
+        catch (const out_of_range& e) {
+            cerr << "Error: Missing operands in instruction -> " << inst << "\n";
+        }
+        catch (const invalid_argument& e) {
+            cerr << "Error: stoi conversion failed for instruction -> " << inst << "\n";
+        }
     }
 }
 
@@ -244,20 +251,9 @@ int main() {
     
     vector<string> instructions = readInstructions("instructions.txt");
     vector<Instruction> Executables;
-    for (const string& inst : instructions) {
-        ParsedInstruction p = parseLine(inst);
-
-        cout << "Instruction: " << inst << "\n";
-        cout << "  Opcode: " << p.opcode << "\n";
-
-        // Print operands
-        for (int i = 0; i < p.operands.size(); i++) {
-            cout << "  Operand " << i << ": " << p.operands[i] << "\n";
-        }
-
-        cout << "\n";
-    }
-
+    assembleInstructions(Executables, instructions);
+    for(auto t : Executables)
+        printInstruction(t);
     
     return 0;
 }
