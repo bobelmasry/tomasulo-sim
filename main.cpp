@@ -40,7 +40,7 @@ MemAddress decodeMemAddress(const string& op) {
 int encodeSigned5(int value) {
     // make sure value fits in 5 bits
     if (value < -16 || value > 15) {
-        cerr << "Offset out of 5-bit signed range\n";
+        cout << "Offset out of 5-bit signed range\n";
         return 0;
     }
 
@@ -89,6 +89,22 @@ ParsedInstruction parseLine(const string& line) {
 
     return inst;
 }
+enum Operation {
+    LOAD,
+    STORE,
+    BEQ,
+    CALL,
+    RET,
+    ADD,
+    SUB,
+    NAND,
+    MUL
+};
+struct Instruction{
+    Operation OP;
+    int A;
+    int Operand1, Operand2, Operand3;
+};
 
 vector<string> readInstructions(const string& filename) {
     ifstream infile(filename);
@@ -116,6 +132,93 @@ vector<string> readInstructions(const string& filename) {
     return instructions;
 }
 
+Operation stringOpSwitcher(string opcode){
+    if(opcode == "LOAD")
+        return LOAD;
+    if(opcode == "STORE")
+        return STORE;
+    if(opcode == "CALL")
+        return LOAD;
+    if(opcode == "RET")
+        return LOAD;
+    if(opcode == "BEQ")
+        return LOAD;
+    if(opcode == "ADD")
+        return LOAD;
+    if(opcode == "SUB")
+        return LOAD;
+    if(opcode == "NAND")
+        return LOAD;
+    if(opcode == "MUL")
+        return LOAD;  
+}
+
+void parseOffset(Instruction& instr, string Operand){
+    int opLen = Operand.length();
+    instr.Operand2 = stoi(Operand.substr(opLen-2, 1));
+    size_t l = Operand.find('(');
+    instr.A = stoi(Operand.substr(0, l));
+}
+
+void assembleInstructions(vector<Instruction>& exec, vector<string> instrs){
+    for (const string& inst : instrs) {
+        ParsedInstruction p = parseLine(inst);
+        Instruction temp;
+        cout << "Instruction: " << inst << "\n";
+        cout << "  Opcode: " << p.opcode << "\n";
+        switch(stringOpSwitcher(p.opcode)){
+            case LOAD:
+                temp.OP = LOAD;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                parseOffset(temp, p.operands[1]);
+                break;
+            case STORE:
+                temp.OP = STORE;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                parseOffset(temp, p.operands[1]);
+                break;
+            case BEQ:
+                temp.OP = BEQ;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                temp.Operand2 = stoi(p.operands[1].substr(1));
+                temp.A = stoi(p.operands[2]);
+                break;
+            case CALL:
+                temp.OP = CALL;
+                temp.A = stoi(p.operands[0]);
+                break;
+            case RET:
+                temp.OP = CALL;
+                break;
+            case ADD:
+                temp.OP = ADD;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                temp.Operand2 = stoi(p.operands[1].substr(1));
+                temp.Operand3 = stoi(p.operands[2].substr(1));
+                break;
+            case SUB:
+                temp.OP = SUB;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                temp.Operand2 = stoi(p.operands[1].substr(1));
+                temp.Operand3 = stoi(p.operands[2].substr(1));
+                break;
+            case NAND:
+                temp.OP = NAND;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                temp.Operand2 = stoi(p.operands[1].substr(1));
+                temp.Operand3 = stoi(p.operands[2].substr(1));
+                break;
+            case MUL:
+                temp.OP = MUL;
+                temp.Operand1 = stoi(p.operands[0].substr(1));
+                temp.Operand2 = stoi(p.operands[1].substr(1));
+                temp.Operand3 = stoi(p.operands[2].substr(1));
+                break;
+        }
+        cout << "\n";
+    }
+}
+
 int main() {
 
     // Initializing all the reservation stations
@@ -140,7 +243,7 @@ int main() {
     ReservationStation Mul("Mul");
     
     vector<string> instructions = readInstructions("instructions.txt");
-
+    vector<Instruction> Executables;
     for (const string& inst : instructions) {
         ParsedInstruction p = parseLine(inst);
 
