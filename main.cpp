@@ -53,12 +53,79 @@ int PC = 0;
 int tCycle = 0;
 
 //Create the ROB
-queue<Instruction> ROB;
+struct ROB_Entry{
+    int Num;
+    Operation Type;
+    int Dest;
+    int Val;
+    bool Ready;
+};
+queue<ROB_Entry*> ROB;
 int ROB_SIZE = 8; // Will have to check this
+int ROB_head = 0;
+int ROB_tail = 0;
+//ROB helper functions
+bool isFull(const queue<Instruction>& q){
+    return q.size() >= 8;
+}
+//Functions to handle the ROB; Does so once validated
+void insertInsructionToRob(ROB_Entry* rb){
+    rb->Num = ROB_tail+1;
+    ROB_tail = (ROB_tail+1)%8;
+    ROB.push(rb);
+}
+//Remove an instruction
+void removeInstructionToRob(){
+    ROB_head = (ROB_head+1)%8;
+    ROB_Entry* rb = ROB.front();
+    ROB.pop();
+    //Incase we need rb for any purposes of CDB
+}
+//Clear ROB
+void clearROB(){
+    ROB_head = 0;
+    ROB_tail = 0;
+    ROB = queue<ROB_Entry*>();
+}
+
+
 
 //Initialize the register array and create renaming functions
 int registers[128];
+int registersAddr[8];
 int topRegisterChanged = 8;
+void initRegisterRenaming(){
+    for(int i = 0; i < 8; i++){
+        registersAddr[i] = i;
+    }
+}
+
+//Register renaming
+//Rules: no changning R1 or R0
+void renameRegisters(Instruction& it) {
+
+    // skip CALL / RET
+    if (it.OP == CALL || it.OP == RET)
+        return;
+
+    // destination rename only for instructions that write a register
+    if ((it.OP == LOAD || it.OP == ADD || it.OP == SUB || it.OP == NAND || it.OP == MUL) &&
+        (it.Operand1 != -1 && it.Operand1 != 0 && it.Operand1 != 1))
+    {
+        registersAddr[it.Operand1] = topRegisterChanged;
+        it.Operand1 = topRegisterChanged;
+        topRegisterChanged++;
+    }
+
+    // rename sources
+    if (it.Operand2 != -1 && it.Operand2 != 0 && it.Operand2 != 1) {
+        it.Operand2 = registersAddr[it.Operand2];
+    }
+
+    if (it.Operand3 != -1 && it.Operand3 != 0 && it.Operand3 != 1) {
+        it.Operand3 = registersAddr[it.Operand3];
+    }
+}
 
 uint16_t memRead(uint16_t address) {
     if (address >= MEM_SIZE) {
@@ -359,16 +426,8 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
     }
 }
 
-//Register renaming
-//Rules: no changning R1 or R0
-void renameRegisters(Instruction& it){
-    
-};
 
-//ROB helper functions
-bool isFull(const queue<Instruction>& q){
-    return q.size() >= 8;
-}
+
 
 int main() {
     
@@ -376,10 +435,14 @@ int main() {
     vector<string> instructions = readInstructions("instructions.txt");
     vector<Instruction> Executables;
     assembleInstructions(Executables, instructions);
-    for(auto t : Executables)
-        printInstruction(t);
-
+    //Initialize register renaming
+    initRegisterRenaming();
     
+    for(auto t : Executables){
+        //For testing renaming
+        //renameRegisters(t);
+        printInstruction(t);
+    }
     // while(true){
     //     tCycle++;
     //     Instruction currentInstruction = Executables[PC];
