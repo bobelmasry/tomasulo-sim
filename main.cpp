@@ -310,8 +310,8 @@ void executeInstruction() {
         }
 
         case CALL: {
-            //registers[1] = PC + 1;         // R1 = return address
-            //PC = PC + instr.A;             // jump (relative)
+            rob_entry->Val = PC + 1;         // R1 = return address
+            rob_entry->Dest = PC + instr.A;             // jump (relative)
             break;
         }
 
