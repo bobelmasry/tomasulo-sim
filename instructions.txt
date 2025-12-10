@@ -7,9 +7,12 @@ BEQ r1, r2, 10
 
 # Call/Return
 CALL 2
-RET
+# RET
 
 # Arithmetic
+ADD r1, r2, r3
+ADD r1, r2, r3
+ADD r1, r2, r3
 ADD r1, r2, r3
 SUB r4, r5, r6
 NAND r0, r1, r2

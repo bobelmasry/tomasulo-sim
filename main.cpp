@@ -1,7 +1,6 @@
 #include "reservationStation.cpp"
 #include <iostream>
 #include <fstream>
-#include <string>
 #include <vector>
 #include <sstream>
 #include <algorithm>
@@ -23,12 +22,23 @@ enum Operation {
     NAND,
     MUL
 };
-
+string enum_operations[9] = {
+    "LOAD",
+    "STORE",
+    "BEQ",
+    "CALL",
+    "RET",
+    "ADD",
+    "SUB",
+    "NAND",
+    "MULL"
+};
 struct Instruction{
     Operation OP;
     int A;
     int Operand1, Operand2, Operand3;
     int tIssue, tExecute, tWrite, tCommit;
+    bool renamed = false;
 };
 
 
@@ -51,6 +61,23 @@ ReservationStation Mul("Mul");
 //Initialize PC and cycle counter
 int PC = 0;
 int tCycle = 0;
+
+//Initialize the register array and create renaming functions
+int registers[128];
+int registersDependency[128];
+int registersAddr[8];
+int topRegisterChanged = 8;
+void initRegisterRenaming(){
+    for(int i = 0; i < 8; i++){
+        registersAddr[i] = i;
+    }
+}
+void initRegisterDependency(){
+    for(int i = 0; i < 128; i++){
+        registersDependency[i] = -1;
+    }
+}
+
 
 // =============================
 //  Reorder Buffer (ROB)
@@ -171,26 +198,11 @@ int returnOpDest(int operandAddr){
 }
 
 
-//Initialize the register array and create renaming functions
-int registers[128];
-int registersDependency[128];
-int registersAddr[8];
-int topRegisterChanged = 8;
-void initRegisterRenaming(){
-    for(int i = 0; i < 8; i++){
-        registersAddr[i] = i;
-    }
-}
-void initRegisterDependency(){
-    for(int i = 0; i < 128; i++){
-        registersDependency[i] = -1;
-    }
-}
 
 //Register renaming
 //Rules: no changning R1 or R0
 void renameRegisters(Instruction& it) {
-
+    it.renamed = true;
     // skip CALL / RET
     if (it.OP == CALL || it.OP == RET)
         return;
@@ -448,7 +460,7 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
         Instruction temp;
 
         try {
-            cout << "Instruction: " << inst << "\n  Opcode: " << p.opcode << "\n";
+            //cout << "Instruction: " << inst << "\n  Opcode: " << p.opcode << "\n";
             temp.Operand3 = -1;
             temp.A = 0;
             temp.Operand1 = -1;
@@ -511,10 +523,16 @@ struct instrRSROB{
     Instruction* instr;
     ReservationStation* rs;
     ROB_Entry* rb;
+    
 };
+void printComplex(instrRSROB it){
+    cout << "Type: " << enum_operations[it.instr->OP] << endl;
+    cout << "Reservation Station: " << it.rs->getName() << endl;
+    cout << "ROB entry: " << it.rb->Num << endl;
+}
 vector<instrRSROB> Complexes;
 //Check validity
-bool checkIssueValidity(Instruction& it, ReservationStation* rs){
+bool checkIssueValidity(Instruction& it, ReservationStation*& rs){
     if(isROBFull()){
         return false;
     }else{
@@ -532,11 +550,13 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
             }
 
             case STORE: {
+                cout << Store.isBusy() << endl;
                 if(Store.isBusy())
                     return false;
                 else{
                     rs = &Store;
                 }
+                return true;
                 break;
             }
 
@@ -558,6 +578,7 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
                 else{
                     rs = &Call;
                 }
+                return true;
                 break;
             }
 
@@ -567,6 +588,7 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
                 else{
                     rs = &Call;
                 }
+                return true;
                 break;
             }
 
@@ -620,10 +642,11 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
                 else{
                     rs = &Mul;
                 }
+                return true;
                 break;
             }
         }
-
+        return false;
     }
 }
 
@@ -639,6 +662,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
     instrRSROB complex;
     complex.instr = &it;
     complex.rs = rs;
+    complex.rs->setBusy(true);
     complex.rb = &(ROB[rob_index]);
     switch (it.OP) {
         case LOAD: {
@@ -777,10 +801,11 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 //Issue Instruction
 void issueInstruction(Instruction& it){
     ReservationStation* rs = nullptr;
+    
     if(checkIssueValidity(it, rs)){
         PC++;
         it.tIssue = tCycle;
-        rs->setBusy(true);
+        //rs->setBusy(true);
         //Create an entry in ROB
         //Need to add some functions in the ROB like searching for destination or something
         
@@ -789,7 +814,9 @@ void issueInstruction(Instruction& it){
         //Before I forget, I am making this into its seperate function to handle the switch case
         //But it depends on the ROB_entry for Qj and Qk
         Complexes.push_back(populateReservationStation(it, rs, rob_index));
+        printComplex(Complexes.at(Complexes.size()-1));
     }
+
 }
 
 int main() {
@@ -801,20 +828,17 @@ int main() {
     assembleInstructions(Executables, instructions);
     //Initialize register renaming
     initRegisterRenaming();
-    
-    for(auto t : Executables){
-        //For testing renaming
-        //renameRegisters(t);
-        // printInstruction(t);
-    }
-    // while(true){
-    //     tCycle++;
-    //     Instruction currentInstruction = Executables[PC];
+    initRegisterDependency();
+    while(true){
+        tCycle++;
+        Instruction currentInstruction = Executables[PC];
+        cout << tCycle << " " << PC << endl;
 
-    //     renameRegisters(currentInstruction);
-    //     issueInstruction(currentInstruction);
-    //     break;
-        
-    // }
+        if(!currentInstruction.renamed)
+            renameRegisters(currentInstruction);
+        issueInstruction(currentInstruction);
+        if(tCycle > 10)
+            break;
+    }
     return 0;
 }
