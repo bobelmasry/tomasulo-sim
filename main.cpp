@@ -22,7 +22,6 @@ enum Operation {
     NAND,
     MUL
 };
-<<<<<<< HEAD
 string enum_operations[9] = {
     "LOAD",
     "STORE",
@@ -34,7 +33,6 @@ string enum_operations[9] = {
     "NAND",
     "MULL"
 };
-=======
 
 struct CycleCost {
     int load = 6;
@@ -50,7 +48,6 @@ struct CycleCost {
 
 CycleCost cycles;
 
->>>>>>> 21c7f65 (almost finished execution)
 struct Instruction{
     Operation OP;
     int A;
