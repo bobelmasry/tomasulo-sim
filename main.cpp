@@ -150,23 +150,19 @@ int executeInstruction(const Instruction& instr, int& PC) {
         case LOAD: {
             int addr = registers[instr.Operand2] + instr.A;   // base + offset
             registers[instr.Operand1] = memRead(addr);
-            PC++;  
             break;
         }
 
         case STORE: {
             int addr = registers[instr.Operand2] + instr.A;
             memWrite(addr, registers[instr.Operand1]);
-            PC++;
             break;
         }
 
         case BEQ: {
             if (registers[instr.Operand1] == registers[instr.Operand2]) {
                 PC = PC + 1 + instr.A;     // taken
-            } else {
-                PC++;                      // not taken
-            }
+            } 
             break;
         }
 
@@ -184,21 +180,18 @@ int executeInstruction(const Instruction& instr, int& PC) {
         case ADD: {
             registers[instr.Operand1] =
                 registers[instr.Operand2] + registers[instr.Operand3];
-            PC++;
             break;
         }
 
         case SUB: {
             registers[instr.Operand1] =
                 registers[instr.Operand2] - registers[instr.Operand3];
-            PC++;
             break;
         }
 
         case NAND: {
             registers[instr.Operand1] =
                 ~(registers[instr.Operand2] & registers[instr.Operand3]);
-            PC++;
             break;
         }
 
@@ -208,7 +201,6 @@ int executeInstruction(const Instruction& instr, int& PC) {
                 (uint32_t)registers[instr.Operand3];
 
             registers[instr.Operand1] = (uint16_t)(result & 0xFFFF);
-            PC++;
             break;
         }
     }
@@ -428,6 +420,7 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
 
 
 //////Issue functions
+//Check validity
 bool checkIssueValidity(Instruction& it, ReservationStation* rs){
     if(isROBFull()){
         return false;
@@ -541,6 +534,122 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
     }
 }
 
+//Populate reservation station
+void populateReservationStation(Instruction& it, ReservationStation* rs){
+    switch (it.OP) {
+        case LOAD: {
+            
+            break;
+        }
+
+        case STORE: {
+            if(Store.isBusy())
+                return false;
+            else{
+                rs = &Store;
+            }
+            break;
+        }
+
+        case BEQ: {
+            if(Branch1.isBusy() && Branch2.isBusy())
+                return false;
+            if(Branch1.isBusy()){
+                rs = &Branch2;
+            }else{
+                rs = &Branch1;
+            }
+            return true;
+            break;
+        }
+
+        case CALL: {
+            if(Call.isBusy())
+                return false;
+            else{
+                rs = &Call;
+            }
+            break;
+        }
+
+        case RET: {
+            if(Call.isBusy())
+                return false;
+            else{
+                rs = &Call;
+            }
+            break;
+        }
+
+        case ADD: {
+            if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
+                return false;
+            if(!Add_Sub1.isBusy()){
+                rs = &Add_Sub1;
+            }else if(!Add_Sub2.isBusy()){
+                rs = &Add_Sub2;
+            }else if(!Add_Sub3.isBusy()){
+                rs = &Add_Sub3;
+            }else{
+                rs = &Add_Sub4;
+            }
+            return true;
+            break;
+        }
+
+        case SUB: {
+            if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
+                return false;
+            if(!Add_Sub1.isBusy()){
+                rs = &Add_Sub1;
+            }else if(!Add_Sub2.isBusy()){
+                rs = &Add_Sub2;
+            }else if(!Add_Sub3.isBusy()){
+                rs = &Add_Sub3;
+            }else{
+                rs = &Add_Sub4;
+            }
+            return true;
+            break;
+        }
+
+        case NAND: {
+            if(NAND1.isBusy() && NAND2.isBusy())
+                return false;
+            if(NAND1.isBusy()){
+                rs = &NAND2;
+            }else{
+                rs = &NAND1;
+            }
+            return true;
+            break;
+        }
+
+        case MUL: {
+            if(Mul.isBusy())
+                return false;
+            else{
+                rs = &Mul;
+            }
+            break;
+        }
+    }
+}
+
+//Issue Instruction
+void issueInstruction(Instruction& it){
+    ReservationStation* rs = nullptr;
+    if(checkIssueValidity(it, rs)){
+        PC++;
+        it.tIssue = tCycle;
+        //Change values in the ReservationStation to contain info about the instruction
+        //Before I forget, I am making this into its seperate function to handle the switch case
+        //But it depends on the ROB_entry for Qj and Qk
+        //Create an entry in ROB
+        //Need to add some functions in the ROB like searching for destination or something
+    }
+}
+
 int main() {
     
     //Import the instructions
@@ -553,16 +662,14 @@ int main() {
     for(auto t : Executables){
         //For testing renaming
         //renameRegisters(t);
-        printInstruction(t);
+        // printInstruction(t);
     }
     // while(true){
     //     tCycle++;
     //     Instruction currentInstruction = Executables[PC];
 
-    //     //Check Ability to issue
-    //     if((ROB.size() < ROB_SIZE)){
-    //         ROB.push(currentInstruction);
-    //     }
+    //     renameRegisters(currentInstruction);
+    //     issueInstruction(currentInstruction);
     //     break;
         
     // }
