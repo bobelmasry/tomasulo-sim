@@ -288,7 +288,8 @@ void executeInstruction() {
             rs->setA(addr);
             rs->setVj(0);
             rs->setVk(0);
-            rob_entry->Val = memRead(addr);
+            //rob_entry->Val = memRead(addr);
+            //rob_entry->Dest = instr.Operand1;
             break;
         }
 
@@ -323,18 +324,21 @@ void executeInstruction() {
         case ADD: {
             rob_entry->Val = instr.Operand2 + instr.Operand3;
             rob_entry->Ready = true;
+            rob_entry->Dest = instr.Operand1;
             break;
         }
 
         case SUB: {
             rob_entry->Val = instr.Operand2 - instr.Operand3;
             rob_entry->Ready = true;
+            rob_entry->Dest = instr.Operand1;
             break;
         }
 
         case NAND: {
             rob_entry->Val = ~(instr.Operand2 & instr.Operand3);
             rob_entry->Ready = true;
+            rob_entry->Dest = instr.Operand1;
             break;
         }
 
@@ -345,6 +349,7 @@ void executeInstruction() {
 
             rob_entry->Val = (uint16_t)(result & 0xFFFF);
             rob_entry->Ready = true;
+            rob_entry->Dest = instr.Operand1;
             break;
         }
     }
