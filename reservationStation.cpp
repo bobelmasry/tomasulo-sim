@@ -6,7 +6,7 @@ private:
     string name;   // e.g., "Add1"
     bool busy;          // true if reservation station is occupied
 
-    string Op;     // operation (ADD, SUB, MUL, DIV, LOAD, STORE)
+    Operation Op;     // operation (ADD, SUB, MUL, DIV, LOAD, STORE)
 
     int Vj;           // Value of operand j (if available)
     int Vk;           // Value of operand k (if available)
@@ -19,13 +19,13 @@ private:
 
 public:
     ReservationStation(const string& name = "")
-        : name(name), busy(false), Op(""),
+        : name(name), busy(false), Op(LOAD),
           Vj(0), Vk(0), Qj(-1), Qk(-1),
           A(0), dest(-1) {}
 
     // Setters
     void setBusy(bool b) { busy = b; }
-    void setOp(const string& op) { Op = op; }
+    void setOp(Operation op) { Op = op; }
     void setVj(int v) { Vj = v; Qj = -1; }
     void setVk(int v) { Vk = v; Qk = -1; }
     void setQj(const int& q) { Qj = q; }
@@ -36,7 +36,7 @@ public:
     // Getters
     string getName() const { return name; }
     bool isBusy() const { return busy; }
-    string getOp() const { return Op; }
+    Operation getOp() const { return Op; }
     int getVj() const { return Vj; }
     int getVk() const { return Vk; }
     int getQj() const { return Qj; }
@@ -47,7 +47,7 @@ public:
     // Reset 
     void clear() {
         busy = false;
-        Op = "";
+        Op = LOAD;
         Vj = Vk = 0;
         Qj = Qk = -1;
         A = 0;

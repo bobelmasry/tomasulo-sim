@@ -22,6 +22,7 @@ enum Operation {
     NAND,
     MUL
 };
+<<<<<<< HEAD
 string enum_operations[9] = {
     "LOAD",
     "STORE",
@@ -33,6 +34,23 @@ string enum_operations[9] = {
     "NAND",
     "MULL"
 };
+=======
+
+struct CycleCost {
+    int load = 6;
+    int store =6;
+    int beq = 1;
+    int call = 1;
+    int ret = 1;
+    int add = 2;
+    int sub = 2;
+    int nand = 1;
+    int mul = 12;
+};
+
+CycleCost cycles;
+
+>>>>>>> 21c7f65 (almost finished execution)
 struct Instruction{
     Operation OP;
     int A;
@@ -57,6 +75,12 @@ ReservationStation Add_Sub4("Add/Sub4");
 ReservationStation NAND1("NAND1");
 ReservationStation NAND2("NAND2");
 ReservationStation Mul("Mul");
+
+ReservationStation* reservationStations[13] = {
+    &Load1, &Load2, &Store, &Branch1, &Branch2, &Call,
+    &Add_Sub1, &Add_Sub2, &Add_Sub3, &Add_Sub4,
+    &NAND1, &NAND2, &Mul
+};
 
 //Initialize PC and cycle counter
 int PC = 0;
@@ -242,69 +266,92 @@ void memWrite(uint16_t address, uint16_t value) {
     memory[address] = value;
 }
 
-int executeInstruction(const Instruction& instr, int& PC) {
+void executeInstruction() {
+    for (int i = 0; i < 13; i++) {
+    ReservationStation* rs = reservationStations[i];
 
-    switch (instr.OP) {
+    if (rs->isBusy()){
 
+        instrRSROB* matchedEntry = nullptr;
+            for (auto& entry : Complexes) {
+                if (entry.rs == rs) {
+                    matchedEntry = &entry;
+                    break;
+                }
+            }
+        Instruction* instrReference = matchedEntry->instr;
+        Instruction instr = *(instrReference);
+
+        ROB_Entry* rob_entry = matchedEntry->rb;
+
+    switch (rs->getOp()) {
+        if (instr.tExecute == tCycle) {
         case LOAD: {
             int addr = registers[instr.Operand2] + instr.A;   // base + offset
-            registers[instr.Operand1] = memRead(addr);
+            rs->setA(addr);
+            rs->setVj(0);
+            rs->setVk(0);
+            rob_entry->Val = memRead(addr);
             break;
         }
 
         case STORE: {
             int addr = registers[instr.Operand2] + instr.A;
-            memWrite(addr, registers[instr.Operand1]);
+            rs->setA(addr);
+            rs->setVj(0);
+            rs->setVk(0);
             break;
         }
 
         case BEQ: {
-            if (registers[instr.Operand1] == registers[instr.Operand2]) {
-                PC = PC + 1 + instr.A;     // taken
-            } 
+            //if (registers[instr.Operand1] == registers[instr.Operand2]) {
+                //PC = PC + 1 + instr.A;     // taken
+            //} 
             break;
         }
 
         case CALL: {
-            registers[1] = PC + 1;         // R1 = return address
-            PC = PC + instr.A;             // jump (relative)
+            //registers[1] = PC + 1;         // R1 = return address
+            //PC = PC + instr.A;             // jump (relative)
             break;
         }
 
         case RET: {
-            PC = registers[1];             // jump to stored return address
+            //PC = registers[1];             // jump to stored return address
             break;
         }
 
         case ADD: {
-            registers[instr.Operand1] =
-                registers[instr.Operand2] + registers[instr.Operand3];
+            rob_entry->Val = instr.Operand2 + instr.Operand3;
+            rob_entry->Ready = true;
             break;
         }
 
         case SUB: {
-            registers[instr.Operand1] =
-                registers[instr.Operand2] - registers[instr.Operand3];
+            rob_entry->Val = instr.Operand2 - instr.Operand3;
+            rob_entry->Ready = true;
             break;
         }
 
         case NAND: {
-            registers[instr.Operand1] =
-                ~(registers[instr.Operand2] & registers[instr.Operand3]);
+            rob_entry->Val = ~(instr.Operand2 & instr.Operand3);
+            rob_entry->Ready = true;
             break;
         }
 
         case MUL: {
             uint32_t result =
-                (uint32_t)registers[instr.Operand2] *
-                (uint32_t)registers[instr.Operand3];
+                (uint32_t)instr.Operand2 *
+                (uint32_t)instr.Operand3;
 
-            registers[instr.Operand1] = (uint16_t)(result & 0xFFFF);
+            rob_entry->Val = (uint16_t)(result & 0xFFFF);
+            rob_entry->Ready = true;
             break;
         }
     }
-
-    return PC;   // new program counter
+    }
+}
+    }
 }
 
 /// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
@@ -667,7 +714,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
     switch (it.OP) {
         case LOAD: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("LOAD");
+            complex.rs->setOp(LOAD);
             complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -680,7 +727,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case STORE: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("STORE");
+            complex.rs->setOp(STORE);
             complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -692,7 +739,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case BEQ: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("BEQ");
+            complex.rs->setOp(BEQ);
             complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -710,7 +757,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case CALL: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("CALL");
+            complex.rs->setOp(CALL);
             complex.rs->setA(it.A);
             
             break;
@@ -718,14 +765,14 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case RET: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("RET");
+            complex.rs->setOp(RET);
             complex.rs->setA(it.A);
             break;
         }
 
         case ADD: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("ADD");
+            complex.rs->setOp(ADD);
             //complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -743,7 +790,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case SUB: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("SUB");
+            complex.rs->setOp(SUB);
             //complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -761,7 +808,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case NAND: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("NAND");
+            complex.rs->setOp(NAND);
             //complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
@@ -779,7 +826,7 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
 
         case MUL: {
             complex.rs->setDest(complex.rb->Num);
-            complex.rs->setOp("MUL");
+            complex.rs->setOp(MUL);
             //complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
