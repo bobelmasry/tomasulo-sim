@@ -6,7 +6,29 @@
 #include <sstream>
 #include <algorithm>
 #include <queue>
+#include <cstdint>
 using namespace std;
+
+static const int MEM_SIZE = 65536;  // number of 16-bit words
+vector<uint16_t> memory(MEM_SIZE, 0);
+
+uint16_t memRead(uint16_t address) {
+    if (address >= MEM_SIZE) {
+        cerr << "Memory Read Error: Address out of range (" << address << ")\n";
+        return 0;
+    }
+    return memory[address];
+}
+
+void memWrite(uint16_t address, uint16_t value) {
+    if (address >= MEM_SIZE) {
+        cerr << "Memory Write Error: Address out of range (" << address << ")\n";
+        return;
+    }
+    memory[address] = value;
+}
+
+
 /// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
 int getRegisterNumber(const string& reg) {
     if (reg.size() < 2 || reg[0] != 'r')
