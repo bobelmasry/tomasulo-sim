@@ -12,6 +12,27 @@ using namespace std;
 static const int MEM_SIZE = 65536;  // number of 16-bit words
 vector<uint16_t> memory(MEM_SIZE, 0);
 
+enum Operation {
+    LOAD,
+    STORE,
+    BEQ,
+    CALL,
+    RET,
+    ADD,
+    SUB,
+    NAND,
+    MUL
+};
+
+struct Instruction{
+    Operation OP;
+    int A;
+    int Operand1, Operand2, Operand3;
+    int tIssue, tExecute, tWrite, tCommit;
+};
+
+
+
 // Initializing all the reservation stations
 ReservationStation Load1("Load1");
 ReservationStation Load2("Load2");
@@ -38,6 +59,22 @@ int ROB_SIZE = 8; // Will have to check this
 //Initialize the register array and create renaming functions
 int registers[128];
 int topRegisterChanged = 8;
+
+uint16_t memRead(uint16_t address) {
+    if (address >= MEM_SIZE) {
+        cerr << "Memory Read Error: Address out of range (" << address << ")\n";
+        return 0;
+    }
+    return memory[address];
+}
+
+void memWrite(uint16_t address, uint16_t value) {
+    if (address >= MEM_SIZE) {
+        cerr << "Memory Write Error: Address out of range (" << address << ")\n";
+        return;
+    }
+    memory[address] = value;
+}
 
 int executeInstruction(const Instruction& instr, int& PC) {
 
@@ -110,23 +147,6 @@ int executeInstruction(const Instruction& instr, int& PC) {
     }
 
     return PC;   // new program counter
-}
-
-
-uint16_t memRead(uint16_t address) {
-    if (address >= MEM_SIZE) {
-        cerr << "Memory Read Error: Address out of range (" << address << ")\n";
-        return 0;
-    }
-    return memory[address];
-}
-
-void memWrite(uint16_t address, uint16_t value) {
-    if (address >= MEM_SIZE) {
-        cerr << "Memory Write Error: Address out of range (" << address << ")\n";
-        return;
-    }
-    memory[address] = value;
 }
 
 /// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
@@ -212,24 +232,7 @@ ParsedInstruction parseLine(const string& line) {
     return inst;
 }
 
-enum Operation {
-    LOAD,
-    STORE,
-    BEQ,
-    CALL,
-    RET,
-    ADD,
-    SUB,
-    NAND,
-    MUL
-};
 
-struct Instruction{
-    Operation OP;
-    int A;
-    int Operand1, Operand2, Operand3;
-    int tIssue, tExecute, tWrite, tCommit;
-};
 
 void printInstruction(Instruction i){
     cout << "Type: " << i.OP << endl;
@@ -373,20 +376,20 @@ int main() {
     vector<string> instructions = readInstructions("instructions.txt");
     vector<Instruction> Executables;
     assembleInstructions(Executables, instructions);
-    // for(auto t : Executables)
-    //     printInstruction(t);
+    for(auto t : Executables)
+        printInstruction(t);
 
     
-    while(true){
-        tCycle++;
-        Instruction currentInstruction = Executables[PC];
+    // while(true){
+    //     tCycle++;
+    //     Instruction currentInstruction = Executables[PC];
 
-        //Check Ability to issue
-        if((ROB.size() < ROB_SIZE)){
-            ROB.push(currentInstruction);
-        }
-        break;
+    //     //Check Ability to issue
+    //     if((ROB.size() < ROB_SIZE)){
+    //         ROB.push(currentInstruction);
+    //     }
+    //     break;
         
-    }
+    // }
     return 0;
 }
