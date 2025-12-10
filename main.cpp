@@ -52,51 +52,138 @@ ReservationStation Mul("Mul");
 int PC = 0;
 int tCycle = 0;
 
-//Create the ROB
-struct ROB_Entry{
-    int Num;
-    Operation Type;
-    int Dest;
-    int Val;
-    bool Ready;
+// =============================
+//  Reorder Buffer (ROB)
+//  Circular Queue – Size 8
+// =============================
+
+struct ROB_Entry {
+    int Num;        // ROB slot index
+    Operation Type; // Instruction type
+    int Dest;       // Destination register or tag
+    int Val;        // Value if ready
+    bool Ready;     // Has CDB written the result?
 };
-queue<ROB_Entry*> ROB;
-int ROB_SIZE = 8; // Will have to check this
-int ROB_head = 0;
-int ROB_tail = 0;
-//ROB helper functions
-bool isROBFull(){
-    return ROB.size() >= 8;
-}
-//Functions to handle the ROB; Does so once validated
-void insertInsructionToRob(ROB_Entry* rb){
-    rb->Num = ROB_tail+1;
-    ROB_tail = (ROB_tail+1)%8;
-    ROB.push(rb);
-}
-//Remove an instruction from ROB
-void removeInstructionToRob(){
-    ROB_head = (ROB_head+1)%8;
-    ROB_Entry* rb = ROB.front();
-    ROB.pop();
-    //Incase we need rb for any purposes of CDB
-}
-//Clear ROB
-void clearROB(){
-    ROB_head = 0;
-    ROB_tail = 0;
-    ROB = queue<ROB_Entry*>();
+
+// Fixed-size ROB
+const int ROB_SIZE = 8;
+ROB_Entry ROB[ROB_SIZE];
+
+// Circular queue pointers
+int ROB_head = 0;     // Points to oldest instruction (to commit)
+int ROB_tail = 0;     // Points to next free entry (to allocate)
+int ROB_count = 0;    // Number of valid entries in the ROB
+
+
+// --------------------------------------------
+// Check if ROB is full
+// --------------------------------------------
+bool isROBFull() {
+    return ROB_count == ROB_SIZE;
 }
 
+// --------------------------------------------
+// Check if ROB is empty
+// --------------------------------------------
+bool isROBEmpty() {
+    return ROB_count == 0;
+}
+
+// --------------------------------------------
+// Insert a new instruction into the ROB
+// Returns: ROB index (tag), or -1 if no space
+// --------------------------------------------
+int insertInstructionToROB(Operation op, int dest) {
+
+    if (isROBFull()) {
+        return -1;   // Insertion failed → ROB full
+    }
+
+    int index = ROB_tail;
+
+    ROB[index].Num   = index;
+    ROB[index].Type  = op;
+    if(op == BEQ || op == CALL || op == RET || op == STORE){
+        ROB[index].Dest  = -1;
+        //registersDependency[dest] = index;    
+    }else{
+        ROB[index].Dest  = dest;
+        registersDependency[dest] = index;
+    }
+    ROB[index].Ready = false;
+
+    // Move tail forward in circular buffer
+    ROB_tail = (ROB_tail + 1) % ROB_SIZE;
+    ROB_count++;
+
+    return index;    // Return ROB tag for RS
+}
+
+// --------------------------------------------
+// Write a value to an ROB entry (from CDB)
+// --------------------------------------------
+void writeROB(int robIndex, int value) {
+    ROB[robIndex].Val = value;
+    ROB[robIndex].Ready = true;
+}
+
+// --------------------------------------------
+// Commit oldest instruction from ROB (pop head)
+// Note: You can add register writeback logic here
+// --------------------------------------------
+void removeInstructionFromROB() {
+    if (isROBEmpty())
+        return;
+
+    int index = ROB_head;
+
+    // Commit logic would be inserted here:
+    // e.g., commit ROB[index].Val to register file
+
+    // Move head forward in circular buffer
+    ROB_head = (ROB_head + 1) % ROB_SIZE;
+    ROB_count--;
+}
+
+// --------------------------------------------
+// Clear the ROB on misprediction / flush
+// --------------------------------------------
+void clearROB() {
+    ROB_head = 0;
+    ROB_tail = 0;
+    ROB_count = 0;
+
+    // Optional: reset entries
+    for (int i = 0; i < ROB_SIZE; i++) {
+        ROB[i].Ready = false;
+    }
+}
+
+//Return the ROB destination holding the desired j or k
+int returnOpDest(int operandAddr){
+    for(int i = 0; i < 8; i++){
+        if(ROB[i].Dest == -1)
+            continue;
+        if(ROB[i].Dest == operandAddr)
+            return i;
+    }
+    return -1;
+}
 
 
 //Initialize the register array and create renaming functions
 int registers[128];
+int registersDependency[128];
 int registersAddr[8];
 int topRegisterChanged = 8;
 void initRegisterRenaming(){
     for(int i = 0; i < 8; i++){
         registersAddr[i] = i;
+    }
+}
+void initRegisterDependency(){
+    for(int i = 0; i < 128; i++){
+        registersDependency[i] = -1;
     }
 }
 
@@ -420,6 +507,12 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
 
 
 //////Issue functions
+struct instrRSROB{
+    Instruction* instr;
+    ReservationStation* rs;
+    ROB_Entry* rb;
+};
+vector<instrRSROB> Complexes;
 //Check validity
 bool checkIssueValidity(Instruction& it, ReservationStation* rs){
     if(isROBFull()){
@@ -534,106 +627,151 @@ bool checkIssueValidity(Instruction& it, ReservationStation* rs){
     }
 }
 
+bool isOperandReady(int operandAddr){
+    if(registersDependency[operandAddr] == -1)
+        return true;
+    return false;
+}
+
+
 //Populate reservation station
-void populateReservationStation(Instruction& it, ReservationStation* rs){
+instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, int rob_index){
+    instrRSROB complex;
+    complex.instr = &it;
+    complex.rs = rs;
+    complex.rb = &(ROB[rob_index]);
     switch (it.OP) {
         case LOAD: {
-            
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("LOAD");
+            complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
+            }else{
+                complex.rs->setQj(registersDependency[it.Operand2]);
+            }
+
             break;
         }
 
         case STORE: {
-            if(Store.isBusy())
-                return false;
-            else{
-                rs = &Store;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("STORE");
+            complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
+            }else{
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
             break;
         }
 
         case BEQ: {
-            if(Branch1.isBusy() && Branch2.isBusy())
-                return false;
-            if(Branch1.isBusy()){
-                rs = &Branch2;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("BEQ");
+            complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
             }else{
-                rs = &Branch1;
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
-            return true;
+            if(isOperandReady(it.Operand1)){
+                complex.rs->setVk(it.Operand1);
+            }else{
+                complex.rs->setQk(registersDependency[it.Operand1]);
+            }
+            
             break;
         }
 
         case CALL: {
-            if(Call.isBusy())
-                return false;
-            else{
-                rs = &Call;
-            }
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("CALL");
+            complex.rs->setA(it.A);
+            
             break;
         }
 
         case RET: {
-            if(Call.isBusy())
-                return false;
-            else{
-                rs = &Call;
-            }
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("RET");
+            complex.rs->setA(it.A);
             break;
         }
 
         case ADD: {
-            if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
-                return false;
-            if(!Add_Sub1.isBusy()){
-                rs = &Add_Sub1;
-            }else if(!Add_Sub2.isBusy()){
-                rs = &Add_Sub2;
-            }else if(!Add_Sub3.isBusy()){
-                rs = &Add_Sub3;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("ADD");
+            //complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
             }else{
-                rs = &Add_Sub4;
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
-            return true;
+            if(isOperandReady(it.Operand3)){
+                complex.rs->setVk(it.Operand3);
+            }else{
+                complex.rs->setQk(registersDependency[it.Operand3]);
+            }
+            
             break;
         }
 
         case SUB: {
-            if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
-                return false;
-            if(!Add_Sub1.isBusy()){
-                rs = &Add_Sub1;
-            }else if(!Add_Sub2.isBusy()){
-                rs = &Add_Sub2;
-            }else if(!Add_Sub3.isBusy()){
-                rs = &Add_Sub3;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("SUB");
+            //complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
             }else{
-                rs = &Add_Sub4;
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
-            return true;
+            if(isOperandReady(it.Operand3)){
+                complex.rs->setVk(it.Operand3);
+            }else{
+                complex.rs->setQk(registersDependency[it.Operand3]);
+            }
+            
             break;
         }
 
         case NAND: {
-            if(NAND1.isBusy() && NAND2.isBusy())
-                return false;
-            if(NAND1.isBusy()){
-                rs = &NAND2;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("NAND");
+            //complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
             }else{
-                rs = &NAND1;
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
-            return true;
+            if(isOperandReady(it.Operand3)){
+                complex.rs->setVk(it.Operand3);
+            }else{
+                complex.rs->setQk(registersDependency[it.Operand3]);
+            }
+            
             break;
         }
 
         case MUL: {
-            if(Mul.isBusy())
-                return false;
-            else{
-                rs = &Mul;
+            complex.rs->setDest(complex.rb->Num);
+            complex.rs->setOp("MUL");
+            //complex.rs->setA(it.A);
+            if(isOperandReady(it.Operand2)){
+                complex.rs->setVj(it.Operand2);
+            }else{
+                complex.rs->setQj(registersDependency[it.Operand2]);
             }
+            if(isOperandReady(it.Operand3)){
+                complex.rs->setVk(it.Operand3);
+            }else{
+                complex.rs->setQk(registersDependency[it.Operand3]);
+            }
+            
             break;
         }
     }
+    return complex;
 }
 
 //Issue Instruction
@@ -642,11 +780,15 @@ void issueInstruction(Instruction& it){
     if(checkIssueValidity(it, rs)){
         PC++;
         it.tIssue = tCycle;
+        rs->setBusy(true);
+        //Create an entry in ROB
+        //Need to add some functions in the ROB like searching for destination or something
+        
+        int rob_index = insertInstructionToROB(it.OP, it.Operand1);
         //Change values in the ReservationStation to contain info about the instruction
         //Before I forget, I am making this into its seperate function to handle the switch case
         //But it depends on the ROB_entry for Qj and Qk
-        //Create an entry in ROB
-        //Need to add some functions in the ROB like searching for destination or something
+        Complexes.push_back(populateReservationStation(it, rs, rob_index));
     }
 }
 
@@ -655,6 +797,7 @@ int main() {
     //Import the instructions
     vector<string> instructions = readInstructions("instructions.txt");
     vector<Instruction> Executables;
+
     assembleInstructions(Executables, instructions);
     //Initialize register renaming
     initRegisterRenaming();

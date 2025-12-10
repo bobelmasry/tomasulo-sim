@@ -8,11 +8,11 @@ private:
 
     string Op;     // operation (ADD, SUB, MUL, DIV, LOAD, STORE)
 
-    float Vj;           // Value of operand j (if available)
-    float Vk;           // Value of operand k (if available)
+    int Vj;           // Value of operand j (if available)
+    int Vk;           // Value of operand k (if available)
 
-    string Qj;     // reservation station producing Vj ("" if ready)
-    string Qk;     // reservation station producing Vk ("" if ready)
+    int Qj;     // reservation station producing Vj ("" if ready)
+    int Qk;     // reservation station producing Vk ("" if ready)
 
     int A;              // Used for loads/stores: effective address
     int dest;           // ROB entry this reservation station writes to
@@ -20,16 +20,16 @@ private:
 public:
     ReservationStation(const string& name = "")
         : name(name), busy(false), Op(""),
-          Vj(0), Vk(0), Qj(""), Qk(""),
+          Vj(0), Vk(0), Qj(-1), Qk(-1),
           A(0), dest(-1) {}
 
     // Setters
     void setBusy(bool b) { busy = b; }
     void setOp(const string& op) { Op = op; }
-    void setVj(float v) { Vj = v; Qj = ""; }
-    void setVk(float v) { Vk = v; Qk = ""; }
-    void setQj(const string& q) { Qj = q; }
-    void setQk(const string& q) { Qk = q; }
+    void setVj(int v) { Vj = v; Qj = -1; }
+    void setVk(int v) { Vk = v; Qk = -1; }
+    void setQj(const int& q) { Qj = q; }
+    void setQk(const int& q) { Qk = q; }
     void setA(int addr) { A = addr; }
     void setDest(int d) { dest = d; }
 
@@ -37,10 +37,10 @@ public:
     string getName() const { return name; }
     bool isBusy() const { return busy; }
     string getOp() const { return Op; }
-    float getVj() const { return Vj; }
-    float getVk() const { return Vk; }
-    string getQj() const { return Qj; }
-    string getQk() const { return Qk; }
+    int getVj() const { return Vj; }
+    int getVk() const { return Vk; }
+    int getQj() const { return Qj; }
+    int getQk() const { return Qk; }
     int getA() const { return A; }
     int getDest() const { return dest; }
 
@@ -49,7 +49,7 @@ public:
         busy = false;
         Op = "";
         Vj = Vk = 0;
-        Qj = Qk = "";
+        Qj = Qk = -1;
         A = 0;
         dest = -1;
     }
