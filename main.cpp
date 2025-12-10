@@ -12,6 +12,107 @@ using namespace std;
 static const int MEM_SIZE = 65536;  // number of 16-bit words
 vector<uint16_t> memory(MEM_SIZE, 0);
 
+// Initializing all the reservation stations
+ReservationStation Load1("Load1");
+ReservationStation Load2("Load2");
+ReservationStation Store("Store");
+ReservationStation Branch1("Branch1");
+ReservationStation Branch2("Branch2");
+ReservationStation Call("Call");
+ReservationStation Add_Sub1("Add/Sub1");
+ReservationStation Add_Sub2("Add/Sub2");
+ReservationStation Add_Sub3("Add/Sub3");
+ReservationStation Add_Sub4("Add/Sub4");
+ReservationStation NAND1("NAND1");
+ReservationStation NAND2("NAND2");
+ReservationStation Mul("Mul");
+
+//Initialize PC and cycle counter
+int PC = 0;
+int tCycle = 0;
+
+//Create the ROB
+queue<Instruction> ROB;
+int ROB_SIZE = 8; // Will have to check this
+
+//Initialize the register array and create renaming functions
+int registers[128];
+int topRegisterChanged = 8;
+
+int executeInstruction(const Instruction& instr, int& PC) {
+
+    switch (instr.OP) {
+
+        case LOAD: {
+            int addr = registers[instr.Operand2] + instr.A;   // base + offset
+            registers[instr.Operand1] = memRead(addr);
+            PC++;  
+            break;
+        }
+
+        case STORE: {
+            int addr = registers[instr.Operand2] + instr.A;
+            memWrite(addr, registers[instr.Operand1]);
+            PC++;
+            break;
+        }
+
+        case BEQ: {
+            if (registers[instr.Operand1] == registers[instr.Operand2]) {
+                PC = PC + 1 + instr.A;     // taken
+            } else {
+                PC++;                      // not taken
+            }
+            break;
+        }
+
+        case CALL: {
+            registers[1] = PC + 1;         // R1 = return address
+            PC = PC + instr.A;             // jump (relative)
+            break;
+        }
+
+        case RET: {
+            PC = registers[1];             // jump to stored return address
+            break;
+        }
+
+        case ADD: {
+            registers[instr.Operand1] =
+                registers[instr.Operand2] + registers[instr.Operand3];
+            PC++;
+            break;
+        }
+
+        case SUB: {
+            registers[instr.Operand1] =
+                registers[instr.Operand2] - registers[instr.Operand3];
+            PC++;
+            break;
+        }
+
+        case NAND: {
+            registers[instr.Operand1] =
+                ~(registers[instr.Operand2] & registers[instr.Operand3]);
+            PC++;
+            break;
+        }
+
+        case MUL: {
+            uint32_t result =
+                (uint32_t)registers[instr.Operand2] *
+                (uint32_t)registers[instr.Operand3];
+
+            registers[instr.Operand1] = (uint16_t)(result & 0xFFFF);
+            PC++;
+            break;
+        }
+    }
+
+    return PC;   // new program counter
+}
+
+
 uint16_t memRead(uint16_t address) {
     if (address >= MEM_SIZE) {
         cerr << "Memory Read Error: Address out of range (" << address << ")\n";
@@ -27,7 +128,6 @@ void memWrite(uint16_t address, uint16_t value) {
     }
     memory[address] = value;
 }
-
 
 /// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
 int getRegisterNumber(const string& reg) {
@@ -74,7 +174,6 @@ int encodeSigned5(int value) {
     return value & 0x1F;  // keep only 5 bits
 }
 
-
 string trim(string s) {
     // Remove leading spaces
     while (!s.empty() && isspace(s.front()))
@@ -112,6 +211,7 @@ ParsedInstruction parseLine(const string& line) {
 
     return inst;
 }
+
 enum Operation {
     LOAD,
     STORE,
@@ -123,12 +223,14 @@ enum Operation {
     NAND,
     MUL
 };
+
 struct Instruction{
     Operation OP;
     int A;
     int Operand1, Operand2, Operand3;
     int tIssue, tExecute, tWrite, tCommit;
 };
+
 void printInstruction(Instruction i){
     cout << "Type: " << i.OP << endl;
     cout << "A: " << i.A << endl;
@@ -136,6 +238,7 @@ void printInstruction(Instruction i){
     cout << "Op2: " << i.Operand2 << endl;
     cout << "Op3: " << i.Operand3 << endl; 
 };
+
 vector<string> readInstructions(const string& filename) {
     ifstream infile(filename);
     vector<string> instructions;
@@ -265,21 +368,6 @@ bool isFull(const queue<Instruction>& q){
 }
 
 int main() {
-
-    // Initializing all the reservation stations
-    ReservationStation Load1("Load1");
-    ReservationStation Load2("Load2");
-    ReservationStation Store("Store");
-    ReservationStation Branch1("Branch1");
-    ReservationStation Branch2("Branch2");
-    ReservationStation Call("Call");
-    ReservationStation Add_Sub1("Add/Sub1");
-    ReservationStation Add_Sub2("Add/Sub2");
-    ReservationStation Add_Sub3("Add/Sub3");
-    ReservationStation Add_Sub4("Add/Sub4");
-    ReservationStation NAND1("NAND1");
-    ReservationStation NAND2("NAND2");
-    ReservationStation Mul("Mul");
     
     //Import the instructions
     vector<string> instructions = readInstructions("instructions.txt");
@@ -287,23 +375,14 @@ int main() {
     assembleInstructions(Executables, instructions);
     // for(auto t : Executables)
     //     printInstruction(t);
-    //Initialize PC and cycle counter
-    int PC = 0;
-    int tCycle = 0;
-    
-    //Create the ROB
-    queue<Instruction> ROB;
 
-    //Initialize the register array and create renaming functions
-    int registers[128];
-    int topRegisterChanged = 8;
     
     while(true){
         tCycle++;
         Instruction currentInstruction = Executables[PC];
 
         //Check Ability to issue
-        if(!isFull(ROB)){
+        if((ROB.size() < ROB_SIZE)){
             ROB.push(currentInstruction);
         }
         break;
