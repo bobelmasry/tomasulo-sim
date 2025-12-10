@@ -65,8 +65,8 @@ int ROB_SIZE = 8; // Will have to check this
 int ROB_head = 0;
 int ROB_tail = 0;
 //ROB helper functions
-bool isFull(const queue<Instruction>& q){
-    return q.size() >= 8;
+bool isROBFull(){
+    return ROB.size() >= 8;
 }
 //Functions to handle the ROB; Does so once validated
 void insertInsructionToRob(ROB_Entry* rb){
@@ -74,7 +74,7 @@ void insertInsructionToRob(ROB_Entry* rb){
     ROB_tail = (ROB_tail+1)%8;
     ROB.push(rb);
 }
-//Remove an instruction
+//Remove an instruction from ROB
 void removeInstructionToRob(){
     ROB_head = (ROB_head+1)%8;
     ROB_Entry* rb = ROB.front();
@@ -427,7 +427,119 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
 }
 
 
+//////Issue functions
+bool checkIssueValidity(Instruction& it, ReservationStation* rs){
+    if(isROBFull()){
+        return false;
+    }else{
+        switch (it.OP) {
+            case LOAD: {
+                if(Load1.isBusy() && Load2.isBusy())
+                    return false;
+                if(Load1.isBusy()){
+                    rs = &Load2;
+                }else{
+                    rs = &Load1;
+                }
+                return true;
+                break;
+            }
 
+            case STORE: {
+                if(Store.isBusy())
+                    return false;
+                else{
+                    rs = &Store;
+                }
+                break;
+            }
+
+            case BEQ: {
+                if(Branch1.isBusy() && Branch2.isBusy())
+                    return false;
+                if(Branch1.isBusy()){
+                    rs = &Branch2;
+                }else{
+                    rs = &Branch1;
+                }
+                return true;
+                break;
+            }
+
+            case CALL: {
+                if(Call.isBusy())
+                    return false;
+                else{
+                    rs = &Call;
+                }
+                break;
+            }
+
+            case RET: {
+                if(Call.isBusy())
+                    return false;
+                else{
+                    rs = &Call;
+                }
+                break;
+            }
+
+            case ADD: {
+                if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
+                    return false;
+                if(!Add_Sub1.isBusy()){
+                    rs = &Add_Sub1;
+                }else if(!Add_Sub2.isBusy()){
+                    rs = &Add_Sub2;
+                }else if(!Add_Sub3.isBusy()){
+                    rs = &Add_Sub3;
+                }else{
+                    rs = &Add_Sub4;
+                }
+                return true;
+                break;
+            }
+
+            case SUB: {
+                if(Add_Sub1.isBusy() && Add_Sub2.isBusy() && Add_Sub3.isBusy() && Add_Sub4.isBusy())
+                    return false;
+                if(!Add_Sub1.isBusy()){
+                    rs = &Add_Sub1;
+                }else if(!Add_Sub2.isBusy()){
+                    rs = &Add_Sub2;
+                }else if(!Add_Sub3.isBusy()){
+                    rs = &Add_Sub3;
+                }else{
+                    rs = &Add_Sub4;
+                }
+                return true;
+                break;
+            }
+
+            case NAND: {
+                if(NAND1.isBusy() && NAND2.isBusy())
+                    return false;
+                if(NAND1.isBusy()){
+                    rs = &NAND2;
+                }else{
+                    rs = &NAND1;
+                }
+                return true;
+                break;
+            }
+
+            case MUL: {
+                if(Mul.isBusy())
+                    return false;
+                else{
+                    rs = &Mul;
+                }
+                break;
+            }
+        }
+
+    }
+}
 
 int main() {
     
