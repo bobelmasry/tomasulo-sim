@@ -301,9 +301,10 @@ void executeInstruction() {
         }
 
         case BEQ: {
-            //if (registers[instr.Operand1] == registers[instr.Operand2]) {
-                //PC = PC + 1 + instr.A;     // taken
-            //} 
+            if (registers[instr.Operand1] == registers[instr.Operand2]) {
+                rob_entry->Val = PC + 1 + instr.A;     // taken
+                rob_entry->Ready = true;
+            } 
             break;
         }
 
@@ -314,7 +315,8 @@ void executeInstruction() {
         }
 
         case RET: {
-            //PC = registers[1];             // jump to stored return address
+            rob_entry->Val = registers[1];             // jump to stored return address
+            rob_entry->Ready = true;
             break;
         }
 
