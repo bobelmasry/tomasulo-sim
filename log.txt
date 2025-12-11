@@ -1,0 +1,131 @@
+commit 6cbc607cb41f5070f39d726a05860bdad0c831d6
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Thu Dec 11 05:02:07 2025 +0200
+
+    Finished working functions of issue, execute, and commit. A problem exist when it comes to clearing ROB and saving instructions timers
+
+commit 614833569007284f715c56143e2e354b2ea33203
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Thu Dec 11 03:39:55 2025 +0200
+
+    Code for committing, alongside outputting data
+
+commit 70e875466627ff0152ca23b634ffb71787d5f65a
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Thu Dec 11 00:02:41 2025 +0200
+
+    implemented call in execution
+
+commit e6ff43988b741c7a01b189241c7fe2bea0adba87
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Thu Dec 11 00:01:42 2025 +0200
+
+    added rob_entry destination in execution
+
+commit a446f3e21a36a217b41bb9ebe8db7cee3db9f0b3
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Wed Dec 10 23:57:09 2025 +0200
+
+    updated beq and ret in execution
+
+commit d8f8e398e06ea30e320fea49cbdec35cc12a3ba0
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 23:41:58 2025 +0200
+
+    Fixed conflicts
+
+commit 67ab823bfaf8646ec5f4ef5773014d42d58951a3
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Wed Dec 10 23:39:10 2025 +0200
+
+    almost finished execution
+
+commit 8b81f2d91c77cdfe6e98dc91e616038da82755b8
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 23:26:49 2025 +0200
+
+    Issuing code complete
+
+commit b3e99f951d7a4b3f3ecf2235643eb1940e2f4802
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 22:44:07 2025 +0200
+
+    Created issuing mechanism
+
+commit b42f6225b9cb2554e3deee6c221f2ee06b011b4d
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 19:20:15 2025 +0200
+
+    Implemented simple stalling
+
+commit 149c77655cd864a8406b248949a7adbe8ebb823d
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 18:58:38 2025 +0200
+
+    Issue validity function
+
+commit 4ab85b58b0a22122bacd22f487f5651d67d3740e
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 18:34:09 2025 +0200
+
+    Finished the renaming registers function and the ground code for ROB
+
+commit fed342ae4e5315c44c781e71bfd0acd1e0360834
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Wed Dec 10 17:08:30 2025 +0200
+
+    removed errors
+
+commit 8c33b5bc8b7b92ec03a7352e1a56505b9183b65d
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Wed Dec 10 13:19:57 2025 +0200
+
+    added executing functions
+
+commit 2edd3c57ae3a40cdaf5bf176fb3afffe3f3d2af3
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Wed Dec 10 13:00:59 2025 +0200
+
+    added memory and memRead and MemWrite functions
+
+commit 0743e74e75e21ba8b5002fff796a48620a55f641
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Wed Dec 10 00:12:19 2025 +0200
+
+    Further coding for the ROB and register renaming - not done
+
+commit 6016d04b66d9a6423427d51734b62ca9b833fe85
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Tue Dec 9 22:28:33 2025 +0200
+
+    Fixed issue with parsing
+
+commit 2d5abff8490f20fd65dde35ef479dfd909b7273d
+Author: Mohamed-Amer-1729 <arith.personal.email@gmail.com>
+Date:   Tue Dec 9 22:15:56 2025 +0200
+
+    Added structure to the instructions struct
+
+commit e56ba0e2c888e3ffcb8a9091ff9b24835baaf312
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Tue Dec 9 10:26:50 2025 +0200
+
+    added helper functions
+
+commit 3e14df32063617d1ef781f7430e45314ab5408e2
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Tue Dec 9 09:26:49 2025 +0200
+
+    added instructions example and functions to parse the input
+
+commit 907dcffa96c9861ecde7a952df2bd3e608e0c53c
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Sat Dec 6 23:21:10 2025 +0200
+
+    created main.cpp and instantiates RS and reads instructions
+
+commit 46bd45b2d591a2c3d4b805e363afa7744124e4bc
+Author: Aly Youssef <alyhassan2254@gmail.com>
+Date:   Sat Dec 6 23:02:21 2025 +0200
+
+    added reservation station class
