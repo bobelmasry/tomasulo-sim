@@ -1,6 +1,18 @@
 #include <string>
 using namespace std;
 
+enum Operation {
+    LOAD,
+    STORE,
+    BEQ,
+    CALL,
+    RET,
+    ADD,
+    SUB,
+    NAND,
+    MUL
+};
+
 class ReservationStation {
 private:
     string name;   // e.g., "Add1"
@@ -19,7 +31,7 @@ private:
 
 public:
     ReservationStation(const string& name = "")
-        : name(name), busy(false), Op(LOAD),
+        : name(name), busy(false), Op(),
           Vj(0), Vk(0), Qj(-1), Qk(-1),
           A(0), dest(-1) {}
 
@@ -47,7 +59,7 @@ public:
     // Reset 
     void clear() {
         busy = false;
-        Op = LOAD;
+        
         Vj = Vk = 0;
         Qj = Qk = -1;
         A = 0;

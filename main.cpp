@@ -11,17 +11,6 @@ using namespace std;
 static const int MEM_SIZE = 65536;  // number of 16-bit words
 vector<uint16_t> memory(MEM_SIZE, 0);
 
-enum Operation {
-    LOAD,
-    STORE,
-    BEQ,
-    CALL,
-    RET,
-    ADD,
-    SUB,
-    NAND,
-    MUL
-};
 string enum_operations[9] = {
     "LOAD",
     "STORE",
@@ -219,6 +208,26 @@ int returnOpDest(int operandAddr){
 }
 
 
+struct instrRSROB{
+    Instruction* instr;
+    ReservationStation* rs;
+    ROB_Entry* rb;
+    bool operator==(const instrRSROB& other) const {
+        return instr == other.instr &&
+               rs    == other.rs &&
+               rb    == other.rb;
+    }
+};
+void printComplex(instrRSROB it){
+    cout << "Type: " << enum_operations[it.instr->OP] << endl;
+    cout << "Reservation Station: " << it.rs->getName() << endl;
+    cout << "ROB entry: " << it.rb->Num << endl;
+    cout << "Issuing: " << it.instr->tIssue << endl;
+    cout << "Issuing: " << it.instr->tIssue << endl;
+    cout << "Issuing: " << it.instr->tIssue << endl;
+}
+vector<instrRSROB> Complexes;
+
 
 //Register renaming
 //Rules: no changning R1 or R0
@@ -262,173 +271,94 @@ void memWrite(uint16_t address, uint16_t value) {
     }
     memory[address] = value;
 }
-
+queue<pair<int, uint16_t>> Store_Buffer; 
 void executeInstruction() {
     for (int i = 0; i < 13; i++) {
-    ReservationStation* rs = reservationStations[i];
-
-    if (rs->isBusy()){
-        if(rs->getQj() != 0 || rs->getQk() != 0)
-            continue;
-        instrRSROB* matchedEntry = nullptr;
-        for (auto& entry : Complexes) {
-            if (entry.rs == rs) {
-                matchedEntry = &entry;
-                break;
-            }
-        }
-        Instruction* instrReference = matchedEntry->instr;
-        Instruction instr = *(instrReference);
-
-        ROB_Entry* rob_entry = matchedEntry->rb;
-
-    switch (rs->getOp()) {
-        if (instr.tExecute == tCycle) {
-        case LOAD: {
-            int addr = registers[instr.Operand2] + instr.A;   // base + offset
-            rs->setA(addr);
-            rs->setVj(0);
-            rs->setVk(0);
-            rob_entry->Val = memRead(addr);
-            break;
-        }
-
-        case STORE: {//Implement store buffer
-            int addr = registers[instr.Operand2] + instr.A;
-            rs->setA(addr);
-            rs->setVj(0);
-            rs->setVk(0);
-            break;
-        }
-
-        case BEQ: {
-            if (registers[instr.Operand1] == registers[instr.Operand2]) {
-                rob_entry->Val = instr.A;     // taken
-                rob_entry->Dest = 0;
-            } else{
-                rob_entry->Dest = 1;
-            }
-            rob_entry->Ready = true;
-            break;
-        }
-
-        case CALL: {
-            rob_entry->Val = PC + 1;         // R1 = return address
-            rob_entry->Dest = PC + instr.A;             // jump (relative)
-            break;
-        }
-
-        case RET: {
-            rob_entry->Val = registers[1];             // jump to stored return address
-            rob_entry->Ready = true;
-            break;
-        }
-
-        case ADD: {
-            rob_entry->Val = instr.Operand2 + instr.Operand3;
-            rob_entry->Ready = true;
-            break;
-        }
-
-        case SUB: {
-            rob_entry->Val = instr.Operand2 - instr.Operand3;
-            rob_entry->Ready = true;
-            rob_entry->Dest = instr.Operand1;
-            break;
-        }
-
-        case NAND: {
-            rob_entry->Val = ~(instr.Operand2 & instr.Operand3);
-            rob_entry->Ready = true;
-            rob_entry->Dest = instr.Operand1;
-            break;
-        }
-
-        case MUL: {
-            uint32_t result =
-                (uint32_t)instr.Operand2 *
-                (uint32_t)instr.Operand3;
-
-            rob_entry->Val = (uint16_t)(result & 0xFFFF);
-            rob_entry->Ready = true;
-            rob_entry->Dest = instr.Operand1;
-            break;
-        }
-    }
-    }
-}
-    }
-}
-
-//Commit the only current Head ROB when ready
-void commitROBs(){
-    int p = ROB_head;
-    if(ROB[p].Ready){
-        ROB_Entry* rb;
-        Instruction* instr;
-        ReservationStation* rs;
-        instrRSROB complex;
-        for(auto t : Complexes){
-            if(t.rb == &(ROB[p])){
-                rb = t.rb;
-                rs = t.rs;
-                instr = t.instr;
-                complex = t;
-                break;
-            }
-        }
-        instr->tCommit = tCycle;
-        rs->clear();
-        switch(rb->Type){
-            case LOAD: 
-                registers[rb->Dest] = rb->Val;
-                registersDependency[rb->Dest] = -1;
-                break;
-            case STORE: //Store buffer
-                break;
-            case BEQ:
-                PC = (rb->Dest == 0) ? rb->Val : PC;
-                if(rb->Dest == 0){
-                    clearROB();
+        ReservationStation* rs = reservationStations[i];
+        if (rs->isBusy()){
+            if(rs->getQj() != 0 || rs->getQk() != 0)
+                continue;
+            instrRSROB* matchedEntry = nullptr;
+            for (auto& entry : Complexes) {
+                if (entry.rs == rs) {
+                    matchedEntry = &entry;
+                    break;
                 }
-                break;
-            case CALL:
-                PC = rb->Val;
-                clearROB();
-                break;
-            case RET:
-                PC = registers[1];
-                clearROB();
-                break;
-            case ADD:
-                registers[rb->Dest] = rb->Val;
-                registersDependency[rb->Dest] = -1;
-                break;
-            case SUB:
-                registers[rb->Dest] = rb->Val;
-                registersDependency[rb->Dest] = -1;
-                break;
-            case NAND:
-                registers[rb->Dest] = rb->Val;
-                registersDependency[rb->Dest] = -1;
-                break;
-            case MUL:
-                registers[rb->Dest] = rb->Val;
-                registersDependency[rb->Dest] = -1;
-                break;
-        }
-        //Send the needed data of the ROB thru CDB to the ReservationStations (and calculate tExecute and tWrite)
-        for (int i = 0; i < 13; i++) {
-            ReservationStation* rs = reservationStations[i];
-            if(rs->getQj() == rb->Num || rs->getQk() == rb->Num){
-                initiateRSfromROB(rs, rb, instr);
             }
-        }
-        //delete the complex from the complexes vector
-        Complexes.erase(find(Complexes.begin(), Complexes.end(), complex));
+            Instruction* instrReference = matchedEntry->instr;
+            Instruction instr = *(instrReference);
 
-        //Delete ROB
-        removeInstructionFromROB();
+            ROB_Entry* rob_entry = matchedEntry->rb;
+
+            switch (rs->getOp()) {
+                if (instr.tExecute == tCycle) {
+                    case LOAD: {
+                        int addr = rs->getVj() + rs->getA();   // base + offset
+                        rs->setA(addr);
+                        rs->setVj(0);
+                        rs->setVk(0);
+                        rob_entry->Val = memRead(addr);
+                        break;
+                    }
+
+                    case STORE: {//Implement store buffer (thru queues)
+                        int addr = rs->getVk() + rs->getA();
+                        rs->setA(addr);
+                        rs->setVj(0);
+                        rs->setVk(0);
+                        Store_Buffer.push(make_pair(addr, rs->getVj()));
+                        break;
+                    }
+
+                    case BEQ: {
+                        if (rs->getVj() == rs->getVk()) {
+                            rob_entry->Val = rs->getA();     // taken
+                            rob_entry->Dest = 0;
+                        } else{
+                            rob_entry->Dest = 1;
+                        }
+                        break;
+                    }
+
+                    case CALL: {
+                        rob_entry->Val = rs->getA();         // R1 = return address
+                        
+                        break;
+                    }
+
+                    case RET: {
+                        rob_entry->Val = registers[1];             // jump to stored return address
+                        break;
+                    }
+
+                    case ADD: {
+                        rob_entry->Val = rs->getVj() + rs->getVk();
+                        break;
+                    }
+
+                    case SUB: {
+                        rob_entry->Val = rs->getVj() - rs->getVk();
+                        break;
+                    }
+
+                    case NAND: {
+                        rob_entry->Val = ~(rs->getVj() & rs->getVk());
+                        break;
+                    }
+
+                    case MUL: {
+                        uint32_t result =
+                            (uint32_t)rs->getVj() *
+                            (uint32_t)rs->getVk();
+
+                        rob_entry->Val = (uint16_t)(result & 0xFFFF);
+                        break;
+                    }
+                }
+            }
+            if(instr.tWrite == tCycle)
+                rob_entry->Ready=true;
+        }
     }
 }
 
@@ -477,6 +407,82 @@ void initiateRSfromROB(ReservationStation*& rs, ROB_Entry* rb, Instruction*& ins
         instr->tWrite = tExecution+1;
     }
 }
+
+
+//Commit the only current Head ROB when ready
+void commitROBs(){
+    int p = ROB_head;
+    if(ROB[p].Ready){
+        ROB_Entry* rb;
+        Instruction* instr;
+        ReservationStation* rs;
+        instrRSROB complex;
+        for(auto t : Complexes){
+            if(t.rb == &(ROB[p])){
+                rb = t.rb;
+                rs = t.rs;
+                instr = t.instr;
+                complex = t;
+                break;
+            }
+        }
+        instr->tCommit = tCycle;
+        rs->clear();
+        switch(rb->Type){
+            case LOAD: 
+                registers[rb->Dest] = rb->Val;
+                registersDependency[rb->Dest] = -1;
+                break;
+            case STORE: //Store buffer
+                memWrite(Store_Buffer.front().first, Store_Buffer.front().second);
+                Store_Buffer.pop();
+                break;
+            case BEQ:
+                PC = (rb->Dest == 0) ? rb->Val : PC;
+                if(rb->Dest == 0){
+                    clearROB();
+                }
+                break;
+            case CALL:
+                PC = rb->Val;
+                clearROB();
+                break;
+            case RET:
+                PC = registers[1];
+                clearROB();
+                break;
+            case ADD:
+                registers[rb->Dest] = rb->Val;
+                registersDependency[rb->Dest] = -1;
+                break;
+            case SUB:
+                registers[rb->Dest] = rb->Val;
+                registersDependency[rb->Dest] = -1;
+                break;
+            case NAND:
+                registers[rb->Dest] = rb->Val;
+                registersDependency[rb->Dest] = -1;
+                break;
+            case MUL:
+                registers[rb->Dest] = rb->Val;
+                registersDependency[rb->Dest] = -1;
+                break;
+        }
+        //Send the needed data of the ROB thru CDB to the ReservationStations (and calculate tExecute and tWrite)
+        for (int i = 0; i < 13; i++) {
+            ReservationStation* rs = reservationStations[i];
+            if(rs->getQj() == rb->Num || rs->getQk() == rb->Num){
+                initiateRSfromROB(rs, rb, instr);
+            }
+        }
+        //delete the complex from the complexes vector
+        Complexes.erase(find(Complexes.begin(), Complexes.end(), complex));
+
+        //Delete ROB
+        removeInstructionFromROB();
+    }
+}
+
 
 /// Everything from here to the next big comment is all about importing instructions and changing them into a usable format
 int getRegisterNumber(const string& reg) {
@@ -690,18 +696,7 @@ void assembleInstructions(vector<Instruction>& exec, const vector<string>& instr
 
 
 //////Issue functions
-struct instrRSROB{
-    Instruction* instr;
-    ReservationStation* rs;
-    ROB_Entry* rb;
-    
-};
-void printComplex(instrRSROB it){
-    cout << "Type: " << enum_operations[it.instr->OP] << endl;
-    cout << "Reservation Station: " << it.rs->getName() << endl;
-    cout << "ROB entry: " << it.rb->Num << endl;
-}
-vector<instrRSROB> Complexes;
+
 //Check validity
 bool checkIssueValidity(Instruction& it, ReservationStation*& rs){
     if(isROBFull()){
@@ -837,9 +832,11 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
     complex.rb = &(ROB[rob_index]);
     switch (it.OP) {
         case LOAD: {
+            complex.rb->Dest = it.Operand1;
             complex.rs->setDest(complex.rb->Num);
             complex.rs->setOp(LOAD);
             complex.rs->setA(it.A);
+
             if(isOperandReady(it.Operand2)){
                 complex.rs->setVj(it.Operand2);
             }else{
@@ -854,9 +851,14 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
             complex.rs->setOp(STORE);
             complex.rs->setA(it.A);
             if(isOperandReady(it.Operand2)){
-                complex.rs->setVj(it.Operand2);
+                complex.rs->setVk(it.Operand2);
             }else{
-                complex.rs->setQj(registersDependency[it.Operand2]);
+                complex.rs->setQk(registersDependency[it.Operand2]);
+            }
+            if(isOperandReady(it.Operand1)){
+                complex.rs->setVj(it.Operand1);
+            }else{
+                complex.rs->setQj(registersDependency[it.Operand1]);
             }
             break;
         }
@@ -966,6 +968,41 @@ instrRSROB populateReservationStation(Instruction& it, ReservationStation* rs, i
             break;
         }
     }
+    CycleCost cc;
+    if(rs->getQj() == 0 && rs->getQk() == 0){
+        int tExecution = tCycle;
+        switch(complex.instr->OP){
+            case LOAD:
+                tExecution+=cc.load;
+                break;
+            case STORE:
+                tExecution+=cc.store;
+                break;
+            case BEQ:
+                tExecution+=cc.beq;
+                break;
+            case CALL:
+                tExecution+=cc.call;
+                break;
+            case RET:
+                tExecution+=cc.ret;
+                break;
+            case ADD:
+                tExecution+=cc.add;
+                break;
+            case SUB:
+                tExecution+=cc.sub;
+                break;
+            case NAND:
+                tExecution+=cc.nand;
+                break;
+            case MUL:
+                tExecution+=cc.mul;
+                break;
+        }
+        complex.instr->tExecute = tExecution;
+        complex.instr->tWrite = tExecution+1;
+    }
     return complex;
 }
 
@@ -975,6 +1012,7 @@ void issueInstruction(Instruction& it){
     
     if(checkIssueValidity(it, rs)){
         PC++;
+        cout << "Tcycle inside of issuing: " << tCycle;
         it.tIssue = tCycle;
         //rs->setBusy(true);
         //Create an entry in ROB
@@ -1010,7 +1048,8 @@ int main() {
         issueInstruction(currentInstruction);
         executeInstruction();
         commitROBs();
-
+        if(tCycle > 100)
+            break;
         //To break out of the cycle
         if(PC >= Executables.size())
             break;
@@ -1022,6 +1061,9 @@ int main() {
         cout << "Timings" << endl;
         cout << "Issued: " << it.tIssue << ", Executed: " << it.tExecute << ", Written: " << it.tWrite << ", Committed: " << it.tCommit << endl;
         cout << endl;
+    }
+    for(auto complex : Complexes){
+        printComplex(complex);
     }
     return 0;
 }
